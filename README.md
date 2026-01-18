@@ -140,6 +140,10 @@ go run main.go
 - ✅ 邮箱唯一性验证
 - ✅ 用户状态管理
 
+- ✅按姓名查询
+- ✅分页与排序
+- ✅用户详情页
+
 ### 认证功能
 - ✅ 用户注册
 - ✅ 用户登录
@@ -173,6 +177,7 @@ go run main.go
 - `GET /api/auth/me` - 获取当前用户信息
 - `POST /api/auth/change-password` - 修改密码
 - `GET /api/users` - 获取所有用户
+- `GET /api/users/search` - 按姓名查询用户（分页/排序）
 - `GET /api/users/:id` - 获取单个用户
 - `POST /api/users` - 创建用户
 - `PUT /api/users/:id` - 更新用户
@@ -272,4 +277,3 @@ MIT License
 ## 贡献
 
 欢迎提交 Issue 和 Pull Request！
-

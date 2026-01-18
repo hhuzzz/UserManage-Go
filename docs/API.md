@@ -243,12 +243,7 @@ Content-Type: application/json
 Authorization: Bearer <your_token>
 ```
 
-**查询参数** (可选):
-
-| 参数 | 类型 | 说明 |
-|------|------|------|
-| page | int | 页码 |
-| limit | int | 每页数量 |
+**查询参数**: 无（返回全量用户）
 
 **响应示例**:
 
@@ -287,7 +282,60 @@ Authorization: Bearer <your_token>
 
 ---
 
-### 2. 获取单个用户
+### 2. 按姓名查询用户（分页/排序）
+
+**接口**: `GET /api/users/search`
+
+**说明**: 按姓名模糊查询用户，支持分页与排序
+
+**请求头**:
+```http
+Authorization: Bearer <your_token>
+```
+
+**查询参数** (可选):
+
+| 参数 | 类型 | 说明 |
+|------|------|------|
+| name | string | 姓名关键字（模糊匹配） |
+| page | int | 页码，默认 1 |
+| size | int | 每页数量，默认 10，最大 100 |
+| sort_by | string | 排序字段：id/name/email/phone/age/status/created_at |
+| sort_order | string | 排序方式：asc/desc，默认 desc |
+
+**响应示例**:
+
+成功 (200):
+```json
+{
+  "items": [
+    {
+      "id": 1,
+      "name": "系统管理员",
+      "email": "admin@example.com",
+      "phone": "13800138000",
+      "age": 35,
+      "status": 1,
+      "created_at": "2026-01-18T14:33:03+08:00",
+      "updated_at": "2026-01-18T14:33:03+08:00"
+    }
+  ],
+  "page": 1,
+  "size": 10,
+  "total": 1
+}
+```
+
+失败 (401):
+```json
+{
+  "error": "Authorization header is required"
+}
+```
+
+---
+
+### 3. 获取单个用户
 
 **接口**: `GET /api/users/:id`
 
@@ -329,7 +377,7 @@ Authorization: Bearer <your_token>
 
 ---
 
-### 3. 创建用户
+### 4. 创建用户
 
 **接口**: `POST /api/users`
 
@@ -389,7 +437,7 @@ Content-Type: application/json
 
 ---
 
-### 4. 更新用户
+### 5. 更新用户
 
 **接口**: `PUT /api/users/:id`
 
@@ -453,7 +501,7 @@ Content-Type: application/json
 
 ---
 
-### 5. 删除用户
+### 6. 删除用户
 
 **接口**: `DELETE /api/users/:id`
 
@@ -524,10 +572,10 @@ curl -X POST http://localhost:8080/api/auth/login \
   }'
 ```
 
-#### 获取用户列表 (需要 Token)
+#### 查询用户列表 (需要 Token)
 ```bash
 TOKEN="your_token_here"
-curl -X GET http://localhost:8080/api/users \
+curl -X GET "http://localhost:8080/api/users/search?name=张&page=1&size=10&sort_by=created_at&sort_order=desc" \
   -H "Authorization: Bearer $TOKEN"
 ```
 
@@ -566,11 +614,18 @@ async function login(email, password) {
 }
 ```
 
-#### 获取用户列表
+#### 查询用户列表
 ```javascript
-async function getUsers() {
+async function getUsers(params = {}) {
   const token = localStorage.getItem('token');
-  const response = await fetch('/api/users', {
+  const query = new URLSearchParams({
+    name: params.name || '',
+    page: String(params.page || 1),
+    size: String(params.size || 10),
+    sort_by: params.sortBy || 'created_at',
+    sort_order: params.sortOrder || 'desc'
+  });
+  const response = await fetch(`/api/users/search?${query.toString()}`, {
     headers: { 'Authorization': `Bearer ${token}` }
   });
   return await response.json();
