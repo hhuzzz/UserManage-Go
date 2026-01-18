@@ -14,6 +14,7 @@ func SetupRoutes(r *gin.Engine, userController *controllers.UserController, auth
 	r.GET("/login", authController.LoginPage)
 	r.GET("/users/new", userController.CreatePage)
 	r.GET("/users/:id/edit", userController.EditPage)
+	r.GET("/users/:id", userController.DetailPage)
 
 	// API routes
 	api := r.Group("/api")
@@ -30,6 +31,7 @@ func SetupRoutes(r *gin.Engine, userController *controllers.UserController, auth
 			protected.GET("/auth/me", authController.GetCurrentUser)
 			protected.POST("/auth/change-password", authController.ChangePassword)
 			protected.GET("/users", userController.GetAllUsers)
+			protected.GET("/users/search", userController.SearchUsers)
 			protected.POST("/users", userController.CreateUser)
 			protected.GET("/users/:id", userController.GetUserByID)
 			protected.PUT("/users/:id", userController.UpdateUser)

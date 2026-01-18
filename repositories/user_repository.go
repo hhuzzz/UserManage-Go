@@ -4,6 +4,7 @@ import (
 	"hello/models"
 
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 )
 
 type UserRepository interface {
@@ -13,6 +14,7 @@ type UserRepository interface {
 	Update(user *models.User) error
 	Delete(id uint) error
 	FindByEmail(email string) (*models.User, error)
+	SearchByName(name string, page, size int, sortBy string, sortDesc bool) ([]models.User, int64, error)
 }
 
 type userRepository struct {
@@ -57,4 +59,27 @@ func (r *userRepository) FindByEmail(email string) (*models.User, error) {
 		return nil, err
 	}
 	return &user, nil
+}
+
+func (r *userRepository) SearchByName(name string, page, size int, sortBy string, sortDesc bool) ([]models.User, int64, error) {
+	var users []models.User
+	var total int64
+
+	query := r.db.Model(&models.User{})
+	if name != "" {
+		query = query.Where("name LIKE ?", "%"+name+"%")
+	}
+
+	if err := query.Count(&total).Error; err != nil {
+		return nil, 0, err
+	}
+
+	order := clause.OrderByColumn{Column: clause.Column{Name: sortBy}, Desc: sortDesc}
+	offset := (page - 1) * size
+	err := query.Order(order).Limit(size).Offset(offset).Find(&users).Error
+	if err != nil {
+		return nil, 0, err
+	}
+
+	return users, total, nil
 }

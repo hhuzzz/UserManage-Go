@@ -119,6 +119,45 @@
                     </div>
                     {{end}}
 
+                    <div class="row g-2 align-items-end mb-3" id="searchPanel">
+                        <div class="col-md-4">
+                            <label for="searchName" class="form-label">姓名</label>
+                            <input type="text" class="form-control" id="searchName" placeholder="按姓名查询">
+                        </div>
+                        <div class="col-md-2">
+                            <label for="sortBy" class="form-label">排序字段</label>
+                            <select class="form-select" id="sortBy">
+                                <option value="created_at">创建时间</option>
+                                <option value="name">姓名</option>
+                                <option value="email">邮箱</option>
+                                <option value="phone">电话</option>
+                                <option value="age">年龄</option>
+                                <option value="status">状态</option>
+                                <option value="id">ID</option>
+                            </select>
+                        </div>
+                        <div class="col-md-2">
+                            <label for="sortOrder" class="form-label">排序方式</label>
+                            <select class="form-select" id="sortOrder">
+                                <option value="desc">DESC</option>
+                                <option value="asc">ASC</option>
+                            </select>
+                        </div>
+                        <div class="col-md-2">
+                            <label for="pageSize" class="form-label">每页数量</label>
+                            <select class="form-select" id="pageSize">
+                                <option value="10">10</option>
+                                <option value="20">20</option>
+                                <option value="50">50</option>
+                            </select>
+                        </div>
+                        <div class="col-md-2">
+                            <button class="btn btn-primary w-100" onclick="applySearch()">
+                                <i class="bi bi-search me-1"></i>查询
+                            </button>
+                        </div>
+                    </div>
+
                     <div class="table-responsive">
                     <table class="table table-hover">
                         <thead>
@@ -133,11 +172,11 @@
                                 <th>操作</th>
                             </tr>
                         </thead>
-                        <tbody>
+                        <tbody id="userTableBody">
                             {{range .users}}
                             <tr>
                                 <td>{{.ID}}</td>
-                                <td>{{.Name}}</td>
+                                <td><a href="/users/{{.ID}}" class="text-decoration-none">{{.Name}}</a></td>
                                 <td>{{.Email}}</td>
                                 <td>{{.Phone}}</td>
                                 <td>{{.Age}}</td>
@@ -150,6 +189,9 @@
                                 </td>
                                 <td>{{.CreatedAt.Format "2006-01-02 15:04:05"}}</td>
                                 <td>
+                                    <a class="btn btn-sm btn-outline-secondary action-btn" href="/users/{{.ID}}">
+                                        <i class="bi bi-eye"></i>
+                                    </a>
                                     <button class="btn btn-sm btn-outline-primary action-btn" onclick="showEditModal({{.ID}})">
                                         <i class="bi bi-pencil"></i>
                                     </button>
@@ -168,6 +210,12 @@
                             {{end}}
                         </tbody>
                     </table>
+                </div>
+                <div class="d-flex justify-content-between align-items-center mt-3" id="paginationBar">
+                    <div id="paginationInfo" class="text-muted small"></div>
+                    <nav>
+                        <ul class="pagination pagination-sm mb-0" id="userPagination"></ul>
+                    </nav>
                 </div>
                 </div>
             </div>
@@ -291,11 +339,27 @@
         let loginModal;
         let changePasswordModal;
         let isEditMode = false;
+        const searchState = {
+            name: '',
+            page: 1,
+            size: 10,
+            sortBy: 'created_at',
+            sortOrder: 'desc'
+        };
 
         document.addEventListener('DOMContentLoaded', function() {
             userModal = new bootstrap.Modal(document.getElementById('userModal'));
             loginModal = new bootstrap.Modal(document.getElementById('loginModal'));
             changePasswordModal = new bootstrap.Modal(document.getElementById('changePasswordModal'));
+            document.getElementById('searchName').addEventListener('keydown', function(event) {
+                if (event.key === 'Enter') {
+                    event.preventDefault();
+                    applySearch();
+                }
+            });
+            document.getElementById('sortBy').addEventListener('change', applySearch);
+            document.getElementById('sortOrder').addEventListener('change', applySearch);
+            document.getElementById('pageSize').addEventListener('change', applySearch);
             checkLoginStatus();
         });
 
@@ -400,6 +464,168 @@
             .catch(error => showToast('删除失败', 'danger'));
         }
 
+        function applySearch() {
+            searchState.name = document.getElementById('searchName').value.trim();
+            searchState.sortBy = document.getElementById('sortBy').value;
+            searchState.sortOrder = document.getElementById('sortOrder').value;
+            searchState.size = parseInt(document.getElementById('pageSize').value) || 10;
+            searchState.page = 1;
+            loadUsers();
+        }
+
+        function loadUsers() {
+            const token = localStorage.getItem('token');
+            if (!token) {
+                return;
+            }
+
+            const params = new URLSearchParams({
+                name: searchState.name,
+                page: String(searchState.page),
+                size: String(searchState.size),
+                sort_by: searchState.sortBy,
+                sort_order: searchState.sortOrder
+            });
+
+            fetch(`/api/users/search?${params.toString()}`, { headers: getAuthHeader() })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.error) {
+                        showToast(data.error, 'danger');
+                        return;
+                    }
+                    renderUsers(data.items || []);
+                    renderPagination(data.page || 1, data.size || searchState.size, data.total || 0);
+                })
+                .catch(error => showToast('加载用户失败', 'danger'));
+        }
+
+        function renderUsers(users) {
+            const tbody = document.getElementById('userTableBody');
+            if (!tbody) {
+                return;
+            }
+
+            if (users.length === 0) {
+                tbody.innerHTML = `
+                    <tr>
+                        <td colspan="8" class="text-center text-muted">
+                            <i class="bi bi-inbox fs-1 d-block mb-2"></i>
+                            暂无数据
+                        </td>
+                    </tr>
+                `;
+                return;
+            }
+
+            const rows = users.map(user => {
+                const createdAt = user.created_at ? new Date(user.created_at).toLocaleString() : '';
+                const statusText = user.status === 1 ? '活跃' : '未激活';
+                const statusClass = user.status === 1 ? 'badge-active' : 'badge-inactive';
+
+                return `
+                    <tr>
+                        <td>${user.id}</td>
+                        <td><a href="/users/${user.id}" class="text-decoration-none">${escapeHtml(user.name || '')}</a></td>
+                        <td>${escapeHtml(user.email || '')}</td>
+                        <td>${escapeHtml(user.phone || '')}</td>
+                        <td>${user.age || ''}</td>
+                        <td><span class="badge ${statusClass}">${statusText}</span></td>
+                        <td>${createdAt}</td>
+                        <td>
+                            <a class="btn btn-sm btn-outline-secondary action-btn" href="/users/${user.id}">
+                                <i class="bi bi-eye"></i>
+                            </a>
+                            <button class="btn btn-sm btn-outline-primary action-btn" onclick="showEditModal(${user.id})">
+                                <i class="bi bi-pencil"></i>
+                            </button>
+                            <button class="btn btn-sm btn-outline-danger action-btn" onclick="deleteUser(${user.id})">
+                                <i class="bi bi-trash"></i>
+                            </button>
+                        </td>
+                    </tr>
+                `;
+            }).join('');
+
+            tbody.innerHTML = rows;
+        }
+
+        function renderPagination(page, size, total) {
+            const pagination = document.getElementById('userPagination');
+            const info = document.getElementById('paginationInfo');
+            if (!pagination || !info) {
+                return;
+            }
+
+            const totalPages = Math.max(1, Math.ceil(total / size));
+            info.textContent = `共 ${total} 条，当前第 ${page} / ${totalPages} 页`;
+            pagination.innerHTML = '';
+
+            const addItem = (label, targetPage, disabled, active) => {
+                const li = document.createElement('li');
+                li.className = `page-item${disabled ? ' disabled' : ''}${active ? ' active' : ''}`;
+                const button = document.createElement('button');
+                button.className = 'page-link';
+                button.textContent = label;
+                if (!disabled) {
+                    button.addEventListener('click', () => {
+                        searchState.page = targetPage;
+                        loadUsers();
+                    });
+                }
+                li.appendChild(button);
+                pagination.appendChild(li);
+            };
+
+            addItem('上一页', Math.max(1, page - 1), page === 1, false);
+
+            const pages = [];
+            if (totalPages <= 7) {
+                for (let i = 1; i <= totalPages; i++) {
+                    pages.push(i);
+                }
+            } else {
+                pages.push(1);
+                const start = Math.max(2, page - 1);
+                const end = Math.min(totalPages - 1, page + 1);
+                if (start > 2) {
+                    pages.push('...');
+                }
+                for (let i = start; i <= end; i++) {
+                    pages.push(i);
+                }
+                if (end < totalPages - 1) {
+                    pages.push('...');
+                }
+                pages.push(totalPages);
+            }
+
+            pages.forEach(p => {
+                if (p === '...') {
+                    const li = document.createElement('li');
+                    li.className = 'page-item disabled';
+                    const span = document.createElement('span');
+                    span.className = 'page-link';
+                    span.textContent = '...';
+                    li.appendChild(span);
+                    pagination.appendChild(li);
+                    return;
+                }
+                addItem(String(p), p, false, p === page);
+            });
+
+            addItem('下一页', Math.min(totalPages, page + 1), page === totalPages, false);
+        }
+
+        function escapeHtml(value) {
+            return value
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#39;');
+        }
+
         function showToast(message, type = 'info') {
             const toastContainer = document.querySelector('.toast-container');
             const toastId = 'toast-' + Date.now();
@@ -441,11 +667,16 @@
                 document.getElementById('welcomeText').textContent = `欢迎, ${user.name || user.email}`;
                 document.getElementById('loginRequired').style.display = 'none';
                 document.getElementById('userContent').style.display = 'block';
+                document.getElementById('searchPanel').style.display = '';
+                document.getElementById('paginationBar').style.display = 'flex';
+                loadUsers();
             } else {
                 document.getElementById('navAuthButtons').style.display = 'block';
                 document.getElementById('navUserInfo').style.display = 'none';
                 document.getElementById('loginRequired').style.display = 'block';
                 document.getElementById('userContent').style.display = 'none';
+                document.getElementById('searchPanel').style.display = 'none';
+                document.getElementById('paginationBar').style.display = 'none';
             }
         }
 

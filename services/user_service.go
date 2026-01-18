@@ -4,6 +4,7 @@ import (
 	"errors"
 	"hello/models"
 	"hello/repositories"
+	"strings"
 
 	"golang.org/x/crypto/bcrypt"
 )
@@ -14,6 +15,7 @@ type UserService interface {
 	GetUserByID(id uint) (*models.User, error)
 	UpdateUser(id uint, req *models.UpdateUserRequest) (*models.User, error)
 	DeleteUser(id uint) error
+	SearchUsers(name string, page, size int, sortBy, sortOrder string) ([]models.User, int64, error)
 }
 
 type userService struct {
@@ -104,4 +106,39 @@ func (s *userService) UpdateUser(id uint, req *models.UpdateUserRequest) (*model
 
 func (s *userService) DeleteUser(id uint) error {
 	return s.repo.Delete(id)
+}
+
+func (s *userService) SearchUsers(name string, page, size int, sortBy, sortOrder string) ([]models.User, int64, error) {
+	name = strings.TrimSpace(name)
+	if page < 1 {
+		page = 1
+	}
+	if size < 1 {
+		size = 10
+	}
+	if size > 100 {
+		size = 100
+	}
+
+	sortBy = strings.ToLower(strings.TrimSpace(sortBy))
+	allowedSort := map[string]struct{}{
+		"id":         {},
+		"name":       {},
+		"email":      {},
+		"phone":      {},
+		"age":        {},
+		"status":     {},
+		"created_at": {},
+	}
+	if _, ok := allowedSort[sortBy]; !ok {
+		sortBy = "created_at"
+	}
+
+	sortOrder = strings.ToLower(strings.TrimSpace(sortOrder))
+	sortDesc := true
+	if sortOrder == "asc" {
+		sortDesc = false
+	}
+
+	return s.repo.SearchByName(name, page, size, sortBy, sortDesc)
 }
