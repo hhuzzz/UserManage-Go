@@ -4,6 +4,8 @@ import (
 	"errors"
 	"hello/models"
 	"hello/repositories"
+
+	"golang.org/x/crypto/bcrypt"
 )
 
 type UserService interface {
@@ -29,12 +31,19 @@ func (s *userService) CreateUser(req *models.CreateUserRequest) (*models.User, e
 		return nil, errors.New("email already exists")
 	}
 
+	// Hash password
+	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(req.Password), bcrypt.DefaultCost)
+	if err != nil {
+		return nil, err
+	}
+
 	user := &models.User{
-		Name:   req.Name,
-		Email:  req.Email,
-		Phone:  req.Phone,
-		Age:    req.Age,
-		Status: req.Status,
+		Name:     req.Name,
+		Email:    req.Email,
+		Password: string(hashedPassword),
+		Phone:    req.Phone,
+		Age:      req.Age,
+		Status:   req.Status,
 	}
 
 	if req.Status == 0 {
