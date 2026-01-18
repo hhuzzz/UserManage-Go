@@ -19,6 +19,7 @@ func SetupRoutes(r *gin.Engine, userController *controllers.UserController, auth
 	api := r.Group("/api")
 	{
 		// Auth routes (public)
+		api.POST("/auth/register", authController.Register)
 		api.POST("/auth/login", authController.Login)
 		api.POST("/auth/logout", authController.Logout)
 
