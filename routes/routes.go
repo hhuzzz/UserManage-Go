@@ -30,6 +30,7 @@ func SetupRoutes(r *gin.Engine, userController *controllers.UserController, auth
 		{
 			protected.GET("/auth/me", authController.GetCurrentUser)
 			protected.POST("/auth/change-password", authController.ChangePassword)
+			protected.GET("/users/me", authController.GetCurrentUser)
 			protected.GET("/users", userController.GetAllUsers)
 			protected.GET("/users/search", userController.SearchUsers)
 			protected.POST("/users", userController.CreateUser)
